@@ -1,16 +1,16 @@
 import sys
-from iqoptionapi.stable_api import IQ_Option
 import time
+import numpy as np
+import pandas as pd
+
 from datetime import datetime
 from datetime import timedelta
 from dateutil import tz
 
-import numpy as np
-import pandas as pd
-
-from sklearn.ensemble import RandomForestClassifier
+from iqoptionapi.stable_api import IQ_Option
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import plot_roc_curve
 from sklearn.metrics import accuracy_score, classification_report
 
@@ -37,7 +37,6 @@ while True:
         break
     time.sleep(3)
 
-
 def preview():
 
     timestamp = API.get_server_timestamp()
@@ -55,54 +54,12 @@ def preview():
     price_data = price_data[['from', 'close', 'min', 'max', 'volume']]
     price_data['change_price'] = price_data['close'].diff()
 
-    # Calculate RSI
-    n = 5
-    up_df, down_df = price_data[['change_price']
-                                ].copy(), price_data[['change_price']].copy()
-    up_df.loc['change_price'] = up_df.loc[(
-        up_df['change_price'] < 0), 'change_price'] = 0
-    down_df.loc['change_price'] = down_df.loc[(
-        down_df['change_price'] > 0), 'change_price'] = 0
-    down_df['change_price'] = down_df['change_price'].abs()
-    ewma_up = up_df['change_price'].transform(lambda x: x.ewm(span=n).mean())
-    ewma_down = down_df['change_price'].transform(
-        lambda x: x.ewm(span=n).mean())
-    relative_strength = ewma_up / ewma_down
-    relative_strength_index = 100.0 - (100.0 / (1.0 + relative_strength))
-
-    # Calculate the Stochastic Oscillator
-    n = 14
-    low_14, high_14 = price_data[['min']].copy(), price_data[['max']].copy()
-    low_14 = low_14['min'].transform(lambda x: x.rolling(window=n).min())
-    high_14 = high_14['max'].transform(lambda x: x.rolling(window=n).max())
-    k_percent = 100 * ((price_data['close'] - low_14) / (high_14 - low_14))
-
-    # Calculate the Williams %R
-    n = 14
-    low_14, high_14 = price_data[['min']].copy(), price_data[['max']].copy()
-    low_14 = low_14['min'].transform(lambda x: x.rolling(window=n).min())
-    high_14 = high_14['max'].transform(lambda x: x.rolling(window=n).max())
-    r_percent = ((high_14 - price_data['close']) / (high_14 - low_14)) * - 100
-
-    # Calculate the MACD
-    ema_26 = price_data['close'].transform(lambda x: x.ewm(span=26).mean())
-    ema_12 = price_data['close'].transform(lambda x: x.ewm(span=12).mean())
-    macd = ema_12 - ema_26
-
-    # Calculate the EMA
-    ema_9_macd = macd.ewm(span=9).mean()
-
-    # Calculate the Rate of Change in the Price, and store it in the Data Frame.
-    n = 9
-    price_data['Price_Rate_Of_Change'] = price_data['close'].transform(
-        lambda x: x.pct_change(periods=n))
-    price_data['RSI'] = relative_strength_index
-    # price_data['low_14'] = low_14
-    # price_data['high_14'] = high_14
-    price_data['k_percent'] = k_percent
-    price_data['r_percent'] = r_percent
-    price_data['MACD'] = macd
-    price_data['MACD_EMA'] = ema_9_macd
+    calculateRsi()
+    calculateStochasticOscillator()
+    calculateWilliamsR()
+    calculateMacd()
+    calculateEma()
+    calculateRateOfChange()
 
     # pd.DataFrame(price_data).to_csv('price_data.csv', index_label=False)
 
@@ -152,6 +109,54 @@ def preview():
 
     return result
 
+def calculateRsi():
+    n = 5
+    up_df, down_df = price_data[['change_price']
+                                ].copy(), price_data[['change_price']].copy()
+    up_df.loc['change_price'] = up_df.loc[(
+        up_df['change_price'] < 0), 'change_price'] = 0
+    down_df.loc['change_price'] = down_df.loc[(
+        down_df['change_price'] > 0), 'change_price'] = 0
+    down_df['change_price'] = down_df['change_price'].abs()
+    ewma_up = up_df['change_price'].transform(lambda x: x.ewm(span=n).mean())
+    ewma_down = down_df['change_price'].transform(
+        lambda x: x.ewm(span=n).mean())
+    relative_strength = ewma_up / ewma_down
+    relative_strength_index = 100.0 - (100.0 / (1.0 + relative_strength))
+
+def calculateStochasticOscillator():
+    n = 14
+    low_14, high_14 = price_data[['min']].copy(), price_data[['max']].copy()
+    low_14 = low_14['min'].transform(lambda x: x.rolling(window=n).min())
+    high_14 = high_14['max'].transform(lambda x: x.rolling(window=n).max())
+    return k_percent = 100 * ((price_data['close'] - low_14) / (high_14 - low_14))
+
+def calculateWilliamsR():
+    n = 14
+    low_14, high_14 = price_data[['min']].copy(), price_data[['max']].copy()
+    low_14 = low_14['min'].transform(lambda x: x.rolling(window=n).min())
+    high_14 = high_14['max'].transform(lambda x: x.rolling(window=n).max())
+    r_percent = ((high_14 - price_data['close']) / (high_14 - low_14)) * - 100
+
+def calculateMacd():
+    ema_26 = price_data['close'].transform(lambda x: x.ewm(span=26).mean())
+    ema_12 = price_data['close'].transform(lambda x: x.ewm(span=12).mean())
+    macd = ema_12 - ema_26
+
+def calculateEma():
+    ema_9_macd = macd.ewm(span=9).mean()
+
+def calculateRateOfChange():
+    n = 9
+    price_data['Price_Rate_Of_Change'] = price_data['close'].transform(
+        lambda x: x.pct_change(periods=n))
+    price_data['RSI'] = relative_strength_index
+    # price_data['low_14'] = low_14
+    # price_data['high_14'] = high_14
+    price_data['k_percent'] = k_percent
+    price_data['r_percent'] = r_percent
+    price_data['MACD'] = macd
+    price_data['MACD_EMA'] = ema_9_macd
 
 def stop_check(lucro, gain, loss):
     if lucro <= float('-' + str(abs(loss))):
